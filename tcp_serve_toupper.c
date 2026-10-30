@@ -49,10 +49,10 @@ if(bind(socket_listen,bind_address->ai_addr,bind_address->ai_addrlen))
 }
 freeaddrinfo(bind_address);
 
-printf("Listening ... \n)";
+printf("Listening ... \n");
 if(listen(socket_listen, 10) < 0)
 {
-	frintf(stderr,"listen() failed. (%d) \n" , GETSOCKETERRNO());
+	fprintf(stderr,"listen() failed. (%d) \n" , GETSOCKETERRNO());
 	return 1;
 
 }
@@ -72,7 +72,7 @@ while(1)
 	{
 		fprintf(stderr,"select() failed. (%d) \n", GETSOCKETERRNO());
 		return 1;
-	}_address);
+	}
 	//continue;
 	SOCKET i;
 	for(i = 1; i <= max_socket; ++i)
@@ -83,12 +83,59 @@ while(1)
 			if(i == socket_listen)
 			{
 			struct sockaddr_storage client_address;
-			socklen_t client_line = sizeof(client_address);
-			//continue;
+			socklen_t client_len = sizeof(client_address);
+			SOCKET socket_client = accept(socket_listen,(struct sockaddr*) &client_address,&client_len);
+			if(!ISVALIDSOCKET(socket_client))
+			{
+				fprintf(stderr,"accept() failed. (%d) \n",GETSOCKETERRNO());
+				return 1;
 			}
-		}
-	}
+			FD_SET(socket_client, &master);
+			if(socket_client > max_socket)
+			{
+				max_socket = socket_client;
+			}
+			char address_buffer[100];
+			getnameinfo((struct sockaddr*)&client_address,client_len,address_buffer, sizeof(address_buffer),0,00,NI_NUMERICHOST);
+			printf("New connection from %s\n",address_buffer);
+			}
+			else{
+				char read[1024];
+				int bytes_received = recv(i , read , 1024 , 0);
+				if(bytes_received < 1)
+				{
 
-}
+					FD_CLR(i , &master);
+					CLOSESOCKET(i);
+					continue;
 
+				}
+				SOCKET j;
+				for(j=1;j<=max_socket; ++j)
+				{
+				if(FD_ISSET(j,&master))
+				{	
+					if(j == socket_listen || j == i )
+					{	
+						continue;
+					}
+					else
+					{
+						send(j,read,bytes_received,0);
+					}
+				}
+		
+				}
+			}
+		}//if FD_ISSET
+	}//foe i to max_socket
+}//while (1)
+printf("Closing listenig socket...\n");
+CLOSESOCKET(socket_listen);
+
+#if defined(_WIN32)
+	WSACleanup();
+#endif
+	printf("Finished.\n");
+	return 0;
 }
